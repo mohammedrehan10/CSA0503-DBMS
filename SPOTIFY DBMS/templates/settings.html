@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Settings & Database Diagnostics | Spotify Audio Explorer{% endblock %}
+{% block header_title %}System Settings & Database Diagnostics{% endblock %}
+{% block header_subtitle %}Inspect MySQL Server Connection, Schema Integrity and Configuration{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    <!-- DB STATUS CARD -->
+    <div class="card-panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <h2>Database Connection Status</h2>
+                <p>Live health monitoring and adapter status</p>
+            </div>
+            <div class="status-dot {% if db_status.engine == 'mysql' and db_status.connected %}online{% else %}offline{% endif %}" style="width: 14px; height: 14px;"></div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <table class="custom-table">
+                <tbody>
+                    <tr>
+                        <td style="color: var(--text-muted); width: 140px;">Active Engine:</td>
+                        <td>
+                            {% if db_status.engine == 'mysql' %}
+                                <span class="badge badge-green">MySQL 8.0+ (Production)</span>
+                            {% else %}
+                                <span class="badge badge-amber">SQLite Local Mirror (Active Fallback)</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--text-muted);">Database Name:</td>
+                        <td><strong>{{ db_status.database }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--text-muted);">Server Host:</td>
+                        <td><code>{{ db_status.host }}:3306</code></td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--text-muted);">Database User:</td>
+                        <td><code>{{ db_status.user }}</code></td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--text-muted);">Status Message:</td>
+                        <td style="font-size: 12px; color: {% if db_status.connected %}var(--spotify-green){% else %}var(--accent-red){% endif %};">
+                            {{ db_status.message }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display: flex; gap: 12px;">
+            <form action="{{ url_for('db_reconnect') }}" method="POST">
+                <button type="submit" class="btn btn-secondary">
+                    🔄 Test / Reconnect MySQL
+                </button>
+            </form>
+
+            <form action="{{ url_for('reset_database') }}" method="POST" onsubmit="return confirm('Reset all database tables to factory sample data?');">
+                <button type="submit" class="btn btn-danger">
+                    ⚠️ Reset & Reseed Database
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- RELATIONAL SCHEMA ARCHITECTURE -->
+    <div class="card-panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <h2>Relational Schema Design (ER)</h2>
+                <p>Normalized 3NF relational database architecture</p>
+            </div>
+            <span class="badge badge-blue">3NF Normalized</span>
+        </div>
+
+        <div style="font-size: 13px; line-height: 1.8; color: var(--text-secondary);">
+            <div style="padding: 12px; background: var(--bg-input); border-radius: var(--radius-sm); margin-bottom: 12px; border-left: 3px solid var(--spotify-green);">
+                <strong style="color: #fff;">1. ARTISTS</strong> (Primary Entity)<br>
+                <code>artist_id (PK)</code>, <code>artist_name</code>, <code>country</code>, <code>created_at</code>
+            </div>
+
+            <div style="padding: 12px; background: var(--bg-input); border-radius: var(--radius-sm); margin-bottom: 12px; border-left: 3px solid var(--accent-blue);">
+                <strong style="color: #fff;">2. ALBUMS</strong> (1:N with Artists)<br>
+                <code>album_id (PK)</code>, <code>album_name</code>, <code>release_date</code>, <code>artist_id (FK → artists)</code>
+            </div>
+
+            <div style="padding: 12px; background: var(--bg-input); border-radius: var(--radius-sm); margin-bottom: 12px; border-left: 3px solid var(--accent-amber);">
+                <strong style="color: #fff;">3. TRACKS</strong> (1:N with Albums)<br>
+                <code>track_id (PK)</code>, <code>track_name</code>, <code>album_id (FK → albums)</code>, <code>popularity (0-100)</code>, <code>duration_ms</code>
+            </div>
+
+            <div style="padding: 12px; background: var(--bg-input); border-radius: var(--radius-sm); border-left: 3px solid var(--accent-purple);">
+                <strong style="color: #fff;">4. AUDIO_FEATURES</strong> (1:1 with Tracks)<br>
+                <code>track_id (PK/FK → tracks)</code>, <code>danceability</code>, <code>energy</code>, <code>valence</code>, <code>tempo</code>, <code>acousticness</code>, <code>loudness</code>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

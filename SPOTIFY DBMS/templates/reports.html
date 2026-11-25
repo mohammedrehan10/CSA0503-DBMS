@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Analytical Reports & CSV Exports | Spotify Audio Explorer{% endblock %}
+{% block header_title %}Capstone Analytical Reports & Data Exports{% endblock %}
+{% block header_subtitle %}Module 3: Comprehensive Database Export, Performance KPI Summary & Pandas Analytics{% endblock %}
+
+{% block content %}
+<!-- EXPORT ACTIONS BAR -->
+<div class="card-panel" style="margin-bottom: 28px;">
+    <div class="panel-header">
+        <div class="panel-title">
+            <h2>Data Export Center</h2>
+            <p>Generate and stream real-time CSV spreadsheets from MySQL relational tables & Pandas</p>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="window.print()">
+            🖨️ Print / Save as PDF
+        </button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
+        <div style="background: var(--bg-input); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <h4 style="font-size: 14px; margin-bottom: 6px; color: var(--text-primary);">🎵 Tracks Dataset</h4>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Tracks with album & artist IDs, popularity, duration.</p>
+            <a href="{{ url_for('export_csv', entity='tracks') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: center;">
+                Download Tracks CSV
+            </a>
+        </div>
+
+        <div style="background: var(--bg-input); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <h4 style="font-size: 14px; margin-bottom: 6px; color: var(--text-primary);">👤 Artists Summary</h4>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Artist names, country, catalog size, avg popularity.</p>
+            <a href="{{ url_for('export_csv', entity='artists') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: center;">
+                Download Artists CSV
+            </a>
+        </div>
+
+        <div style="background: var(--bg-input); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <h4 style="font-size: 14px; margin-bottom: 6px; color: var(--text-primary);">💿 Albums Catalog</h4>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Albums, release dates, artists, and track yields.</p>
+            <a href="{{ url_for('export_csv', entity='albums') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: center;">
+                Download Albums CSV
+            </a>
+        </div>
+
+        <div style="background: var(--bg-input); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <h4 style="font-size: 14px; margin-bottom: 6px; color: var(--text-primary);">🎛️ Audio Features</h4>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Danceability, energy, valence, tempo, acousticness.</p>
+            <a href="{{ url_for('export_csv', entity='audio_features') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: center;">
+                Download Features CSV
+            </a>
+        </div>
+
+        <div style="background: var(--bg-input); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <h4 style="font-size: 14px; margin-bottom: 6px; color: var(--text-primary);">📊 Pandas Statistics</h4>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Descriptive statistics & percentiles across features.</p>
+            <a href="{{ url_for('export_csv', entity='statistical_summary') }}" class="btn btn-secondary btn-sm" style="width: 100%; justify-content: center;">
+                Download Stats CSV
+            </a>
+        </div>
+
+        <div style="background: var(--bg-input); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <h4 style="font-size: 14px; margin-bottom: 6px; color: var(--text-primary);">📦 Complete Joined DB</h4>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Full 4-table relational join with all metadata.</p>
+            <a href="{{ url_for('export_csv', entity='all') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: center;">
+                Download Full Dump
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- EXECUTIVE CAPSTONE SUMMARY REPORT -->
+<div class="card-panel" style="margin-bottom: 28px;">
+    <div class="panel-header">
+        <div class="panel-title">
+            <h2>DBMS Capstone Analytical Executive Report</h2>
+            <p>Database: <code>{{ db_status.database }}</code> | Engine: <code>{{ db_status.engine|upper }}</code></p>
+        </div>
+        <span class="badge badge-green">Report Generated: Live Snapshot</span>
+    </div>
+
+    <!-- HIGHLIGHT SUMMARY CARDS -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <div style="padding: 16px; background: rgba(30, 215, 96, 0.08); border: 1px solid rgba(30, 215, 96, 0.3); border-radius: var(--radius-md);">
+            <div style="font-size: 12px; color: var(--spotify-green); font-weight: 700; text-transform: uppercase;">Top Performing Artist</div>
+            <div style="font-size: 20px; font-weight: 800; color: #fff; margin: 8px 0;">{{ top_artist.artist_name }} ({{ top_artist.country }})</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Average Popularity: <strong>{{ top_artist.avg_popularity }} / 100</strong> across {{ top_artist.total_tracks }} tracks</div>
+        </div>
+
+        <div style="padding: 16px; background: rgba(61, 145, 244, 0.08); border: 1px solid rgba(61, 145, 244, 0.3); border-radius: var(--radius-md);">
+            <div style="font-size: 12px; color: var(--accent-blue); font-weight: 700; text-transform: uppercase;">#1 Ranked Track</div>
+            <div style="font-size: 20px; font-weight: 800; color: #fff; margin: 8px 0;">{{ top_tracks[0].track_name }}</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">By <strong>{{ top_tracks[0].artist_name }}</strong> | Popularity: <strong>{{ top_tracks[0].popularity }}</strong></div>
+        </div>
+
+        <div style="padding: 16px; background: rgba(242, 153, 74, 0.08); border: 1px solid rgba(242, 153, 74, 0.3); border-radius: var(--radius-md);">
+            <div style="font-size: 12px; color: var(--accent-amber); font-weight: 700; text-transform: uppercase;">Average Catalog Score</div>
+            <div style="font-size: 20px; font-weight: 800; color: #fff; margin: 8px 0;">{{ stats.avg_popularity }} / 100</div>
+            <div style="font-size: 12px; color: var(--text-secondary);">Across {{ stats.total_tracks }} tracks in {{ stats.total_albums }} albums</div>
+        </div>
+    </div>
+
+    <!-- REPORT TABLE 1: TOP TRACKS PERFORMANCE -->
+    <h3 style="font-size: 15px; font-weight: 700; margin: 20px 0 12px; color: var(--spotify-green);">1. Top 5 Most Streamed Tracks Benchmark</h3>
+    <table class="custom-table" style="margin-bottom: 24px;">
+        <thead>
+            <tr>
+                <th>Rank</th>
+                <th>Track Name</th>
+                <th>Artist</th>
+                <th>Album</th>
+                <th>Popularity</th>
+                <th>Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in top_tracks[:5] %}
+            <tr>
+                <td style="color: var(--text-muted);">#{{ loop.index }}</td>
+                <td><strong style="color: var(--text-primary);">{{ t.track_name }}</strong></td>
+                <td>{{ t.artist_name }}</td>
+                <td style="color: var(--text-secondary);">{{ t.album_name }}</td>
+                <td><span class="badge badge-green">{{ t.popularity }} / 100</span></td>
+                <td>{{ format_duration(t.duration_ms) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- REPORT TABLE 2: AUDIO FEATURE COMPOSITION -->
+    <h3 style="font-size: 15px; font-weight: 700; margin: 20px 0 12px; color: var(--spotify-green);">2. Audio DSP Feature Composition by Artist</h3>
+    <table class="custom-table" style="margin-bottom: 24px;">
+        <thead>
+            <tr>
+                <th>Artist</th>
+                <th>Danceability (Avg)</th>
+                <th>Energy (Avg)</th>
+                <th>Valence (Avg)</th>
+                <th>Acousticness (Avg)</th>
+                <th>Tempo (BPM)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for af in features_comp[:6] %}
+            <tr>
+                <td><strong style="color: var(--text-primary);">{{ af.artist_name }}</strong></td>
+                <td style="color: #1ed760; font-weight: 600;">{{ af.avg_danceability }}</td>
+                <td style="color: #3d91f4; font-weight: 600;">{{ af.avg_energy }}</td>
+                <td style="color: #f2994a; font-weight: 600;">{{ af.avg_valence }}</td>
+                <td style="color: #9b51e0; font-weight: 600;">{{ af.avg_acousticness }}</td>
+                <td>{{ af.avg_tempo }} BPM</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- REPORT TABLE 3: PANDAS DESCRIPTIVE DATA PROCESSING -->
+    {% if pandas_analytics and pandas_analytics.stats %}
+    <h3 style="font-size: 15px; font-weight: 700; margin: 24px 0 12px; color: var(--spotify-green);">
+        3. Pandas Multi-Dimensional Descriptive Statistics (N = {{ pandas_analytics.total_rows }} Records)
+    </h3>
+    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+        Engineered with Python <code>pandas.DataFrame.describe()</code> directly across relational MySQL tables.
+    </p>
+    <div class="table-responsive" style="margin-bottom: 24px;">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Feature Metric</th>
+                    <th>Count</th>
+                    <th>Mean (μ)</th>
+                    <th>Std Dev (σ)</th>
+                    <th>Min</th>
+                    <th>25% (Q1)</th>
+                    <th>Median (50%)</th>
+                    <th>75% (Q3)</th>
+                    <th>Max</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for feature_name, metrics in pandas_analytics.stats.items() %}
+                <tr>
+                    <td><strong style="color: var(--text-primary); text-transform: capitalize;">{{ feature_name }}</strong></td>
+                    <td style="color: var(--text-muted);">{{ metrics['count']|int }}</td>
+                    <td style="color: var(--spotify-green); font-weight: 600;">{{ metrics['mean'] }}</td>
+                    <td>{{ metrics['std'] }}</td>
+                    <td>{{ metrics['min'] }}</td>
+                    <td>{{ metrics['25%'] }}</td>
+                    <td style="font-weight: 700; color: var(--accent-blue);">{{ metrics['50%'] }}</td>
+                    <td>{{ metrics['75%'] }}</td>
+                    <td style="font-weight: 700; color: var(--accent-amber);">{{ metrics['max'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PANDAS PEARSON CORRELATION MATRIX -->
+    <h3 style="font-size: 15px; font-weight: 700; margin: 24px 0 12px; color: var(--spotify-green);">
+        4. Audio Features Pearson Correlation Matrix (Pandas Engine)
+    </h3>
+    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+        Calculated using <code>pandas.DataFrame.corr()</code> to identify dependencies (e.g. Energy vs. Acousticness).
+    </p>
+    <div class="table-responsive" style="margin-bottom: 24px;">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Correlation (r)</th>
+                    {% for col in pandas_analytics.corr_cols %}
+                    <th style="text-transform: capitalize;">{{ col }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row_col in pandas_analytics.corr_cols %}
+                <tr>
+                    <td><strong style="color: var(--text-primary); text-transform: capitalize;">{{ row_col }}</strong></td>
+                    {% for col in pandas_analytics.corr_cols %}
+                    {% set r_val = pandas_analytics.corr_matrix[col][row_col] %}
+                    <td>
+                        {% if r_val == 1.0 %}
+                            <span style="color: var(--text-muted); font-weight: 700;">1.000</span>
+                        {% elif r_val > 0.4 %}
+                            <span style="color: var(--spotify-green); font-weight: 700;">+{{ r_val }}</span>
+                        {% elif r_val < -0.4 %}
+                            <span style="color: var(--accent-red); font-weight: 700;">{{ r_val }}</span>
+                        {% else %}
+                            <span style="color: var(--text-secondary);">{{ r_val }}</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- REPORT TABLE 5: ALBUM ANALYSIS -->
+    <h3 style="font-size: 15px; font-weight: 700; margin: 24px 0 12px; color: var(--spotify-green);">5. Album Portfolio Performance Overview</h3>
+    <table class="custom-table">
+        <thead>
+            <tr>
+                <th>Album</th>
+                <th>Artist</th>
+                <th>Release Date</th>
+                <th>Track Count</th>
+                <th>Average Popularity</th>
+                <th>Average Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in album_analysis[:6] %}
+            <tr>
+                <td><strong style="color: var(--text-primary);">{{ a.album_name }}</strong></td>
+                <td>{{ a.artist_name }}</td>
+                <td style="color: var(--text-muted);">{{ a.release_date }}</td>
+                <td><span class="badge badge-green">{{ a.track_count }} Songs</span></td>
+                <td><strong>{{ a.avg_popularity }}</strong></td>
+                <td>{{ a.avg_duration_seconds }}s</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

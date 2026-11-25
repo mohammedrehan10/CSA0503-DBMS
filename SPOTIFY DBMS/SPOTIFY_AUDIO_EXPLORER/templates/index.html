@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Spotify Audio Features & Popularity Explorer{% endblock %}
+{% block header_title %}Spotify Audio Explorer{% endblock %}
+{% block header_subtitle %}Music Analytics Dashboard & Relational Metrics{% endblock %}
+
+{% block content %}
+<!-- =========================================================================
+     C. FOUR STATISTIC CARDS (REAL DATABASE AGGREGATES)
+     ========================================================================= -->
+<section class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-title">Total Tracks</span>
+            <span class="stat-icon">🎵</span>
+        </div>
+        <div class="stat-value" id="totalTracks">{{ stats.total_tracks }}</div>
+        <div class="stat-footer">
+            <span class="stat-indicator positive">↑ +{{ stats.total_tracks }} In Catalog</span>
+            <span class="label">Music collection</span>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-title">Total Artists</span>
+            <span class="stat-icon">👤</span>
+        </div>
+        <div class="stat-value" id="totalArtists">{{ stats.total_artists }}</div>
+        <div class="stat-footer">
+            <span class="stat-indicator positive">↑ {{ stats.total_artists }} Global Roster</span>
+            <span class="label">Registered artists</span>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-title">Total Albums</span>
+            <span class="stat-icon">💿</span>
+        </div>
+        <div class="stat-value" id="totalAlbums">{{ stats.total_albums }}</div>
+        <div class="stat-footer">
+            <span class="stat-indicator positive">↑ {{ stats.total_albums }} Studio Releases</span>
+            <span class="label">Available albums</span>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-title">Average Popularity</span>
+            <span class="stat-icon">⭐</span>
+        </div>
+        <div class="stat-value" id="averagePopularity">{{ stats.avg_popularity }}</div>
+        <div class="stat-footer">
+            <span class="stat-indicator positive">★ 90+ Top Tier</span>
+            <span class="label">Popularity score (0-100)</span>
+        </div>
+    </div>
+</section>
+
+<!-- =========================================================================
+     D & E. MAIN ANALYTICS (LINE CHART) & RIGHT PANEL (DOUGHNUT CHART)
+     ========================================================================= -->
+<section class="analytics-section">
+    <!-- Main Overview Line Chart -->
+    <div class="card-panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <h2>Overview Statistics</h2>
+                <p id="lineChartSubtitle">Track Popularity Analysis Across Top Titles</p>
+            </div>
+            <div class="panel-actions">
+                <div class="filter-pills" id="overviewFilterPills">
+                    <button type="button" class="pill-btn active" data-filter="all">All Top Tracks</button>
+                    <button type="button" class="pill-btn" data-filter="high_pop">Popularity ≥ 90</button>
+                    <button type="button" class="pill-btn" data-filter="dance">Danceable (≥ 0.70)</button>
+                    <button type="button" class="pill-btn" data-filter="energy">High Energy</button>
+                    <button type="button" class="pill-btn" data-filter="acoustic">Acoustic Hits</button>
+                </div>
+            </div>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="popularityChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Right Audio Features Doughnut Chart -->
+    <div class="card-panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <h2>Audio Features</h2>
+                <p>Catalog Audio DSP Averages</p>
+            </div>
+            <a href="{{ url_for('audio_features_list') }}" class="btn btn-secondary btn-sm">Details →</a>
+        </div>
+        <div class="chart-wrapper" style="position: relative;">
+            <canvas id="featureChart"></canvas>
+            <div class="doughnut-center-badge">
+                <span class="center-score">{{ ((chart_data.feature_values[0] + chart_data.feature_values[1]) / 2)|round|int }}%</span>
+                <span class="center-label">Avg DSP</span>
+            </div>
+        </div>
+        <div class="doughnut-legend-list">
+            <div class="doughnut-legend-item">
+                <div class="legend-dot" style="background-color: #1ed760;"></div>
+                <span>Danceability ({{ chart_data.feature_values[0] }}%)</span>
+            </div>
+            <div class="doughnut-legend-item">
+                <div class="legend-dot" style="background-color: #3d91f4;"></div>
+                <span>Energy ({{ chart_data.feature_values[1] }}%)</span>
+            </div>
+            <div class="doughnut-legend-item">
+                <div class="legend-dot" style="background-color: #f2994a;"></div>
+                <span>Valence ({{ chart_data.feature_values[2] }}%)</span>
+            </div>
+            <div class="doughnut-legend-item">
+                <div class="legend-dot" style="background-color: #9b51e0;"></div>
+                <span>Acousticness ({{ chart_data.feature_values[3] }}%)</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- =========================================================================
+     F. TOP POPULAR TRACKS TABLE
+     ========================================================================= -->
+<section class="table-panel">
+    <div class="table-toolbar">
+        <div>
+            <h2 style="font-size: 18px; font-weight: 700;">Top Popular Tracks</h2>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Ranked dynamically by SQL <code>ORDER BY popularity DESC</code></p>
+        </div>
+        <div class="toolbar-actions">
+            <input type="text" id="clientTableSearch" class="form-control" style="width: 220px; height: 36px;" placeholder="Filter displayed rows...">
+            <a href="{{ url_for('tracks_list') }}" class="btn btn-primary btn-sm">+ Add New Track</a>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="custom-table" data-paginate="true" data-per-page="8">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Track Name</th>
+                    <th>Artist</th>
+                    <th>Album</th>
+                    <th>Popularity</th>
+                    <th>Duration</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="trackTable">
+                {% for track in tracks %}
+                <tr>
+                    <td style="color: var(--text-muted); font-size: 12px;">{{ loop.index }}</td>
+                    <td>
+                        <strong style="color: var(--text-primary);">{{ track.track_name }}</strong>
+                    </td>
+                    <td>
+                        <span style="color: var(--spotify-green); font-weight: 600;">{{ track.artist_name }}</span>
+                    </td>
+                    <td style="color: var(--text-secondary);">{{ track.album_name }}</td>
+                    <td>
+                        <div class="pop-container">
+                            <div class="pop-bar">
+                                <div class="pop-fill" style="width: {{ track.popularity }}%;"></div>
+                            </div>
+                            <span class="pop-num">{{ track.popularity }}</span>
+                        </div>
+                    </td>
+                    <td style="color: var(--text-muted); font-size: 13px;">
+                        {{ format_duration(track.duration_ms) }}
+                    </td>
+                    <td>
+                        {% if track.popularity >= 92 %}
+                            <span class="badge badge-green">Chartbuster</span>
+                        {% elif track.popularity >= 85 %}
+                            <span class="badge badge-blue">Popular</span>
+                        {% else %}
+                            <span class="badge badge-amber">Standard</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        No tracks found matching query. <a href="{{ url_for('tracks_list') }}" style="color: var(--spotify-green);">Create one now</a>.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="table-pagination" id="trackTablePagination">
+        <div class="pagination-info">Showing <span class="page-start">1</span> to <span class="page-end">8</span> of <span class="page-total">{{ tracks|length }}</span> tracks</div>
+        <div class="pagination-controls">
+            <button type="button" class="page-btn prev-btn" disabled>&laquo; Prev</button>
+            <div class="page-numbers"></div>
+            <button type="button" class="page-btn next-btn">Next &raquo;</button>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        // Pass JSON chart dataset injected by Flask backend
+        const chartData = {{ chart_data | tojson }};
+        initDashboardCharts(chartData);
+    });
+</script>
+{% endblock %}

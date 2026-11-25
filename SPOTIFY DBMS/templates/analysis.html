@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}SQL Analytics Engine | Spotify Audio Explorer{% endblock %}
+{% block header_title %}SQL-Based Analytics & Query Engine{% endblock %}
+{% block header_subtitle %}Module 2: Relational Queries, Multi-table JOINs, Aggregates & Grouping{% endblock %}
+
+{% block content %}
+<!-- QUERY SELECTION TABS -->
+<div class="query-tabs">
+    <a href="{{ url_for('sql_analysis', q_id='1') }}" class="query-tab-btn {% if selected_id == '1' %}active{% endif %}">
+        Q1: Top 10 Popular Tracks
+    </a>
+    <a href="{{ url_for('sql_analysis', q_id='2') }}" class="query-tab-btn {% if selected_id == '2' %}active{% endif %}">
+        Q2: Average Track Popularity
+    </a>
+    <a href="{{ url_for('sql_analysis', q_id='3') }}" class="query-tab-btn {% if selected_id == '3' %}active{% endif %}">
+        Q3: Artist-Wise Avg Popularity
+    </a>
+    <a href="{{ url_for('sql_analysis', q_id='4') }}" class="query-tab-btn {% if selected_id == '4' %}active{% endif %}">
+        Q4: Album-Wise Track Analysis
+    </a>
+    <a href="{{ url_for('sql_analysis', q_id='5') }}" class="query-tab-btn {% if selected_id == '5' %}active{% endif %}">
+        Q5: Tracks Popularity >= 70
+    </a>
+    <a href="{{ url_for('sql_analysis', q_id='6') }}" class="query-tab-btn {% if selected_id == '6' %}active{% endif %}">
+        Q6: Most Popular Artist
+    </a>
+    <a href="{{ url_for('sql_analysis', q_id='7') }}" class="query-tab-btn {% if selected_id == '7' %}active{% endif %}">
+        Q7: Audio Features Comparison
+    </a>
+    <a href="{{ url_for('sql_analysis', q_id='8') }}" class="query-tab-btn {% if selected_id == '8' %}active{% endif %}">
+        Q8: Danceability & Energy
+    </a>
+</div>
+
+<div class="card-panel" style="margin-bottom: 24px;">
+    <div class="panel-header">
+        <div class="panel-title">
+            <h2>{{ analysis.title }}</h2>
+            <p>{{ analysis.description }}</p>
+        </div>
+        <div class="panel-actions">
+            <span class="badge badge-green">SQL Query Executed Live</span>
+        </div>
+    </div>
+
+    <!-- SQL Syntax Display Box -->
+    <pre class="sql-box"><code>{{ analysis.sql }}</code></pre>
+
+    <!-- Optional Visual Chart for Quantitative Queries -->
+    {% if selected_id in ['1', '3', '8'] %}
+    <div style="margin-bottom: 24px; padding: 16px; background: rgba(0,0,0,0.2); border-radius: var(--radius-md);">
+        <h3 style="font-size: 14px; color: var(--text-secondary); margin-bottom: 14px;">Visualization: Query {{ selected_id }} Metrics</h3>
+        <div style="height: 240px; position: relative;">
+            <canvas id="analysisChart"></canvas>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- TABULAR RESULTS -->
+    <div class="table-responsive">
+        <table class="custom-table">
+            {% if selected_id == '1' %}
+                <!-- Q1: Top 10 tracks -->
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Track Name</th>
+                        <th>Artist</th>
+                        <th>Album</th>
+                        <th>Popularity</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in analysis.data %}
+                    <tr>
+                        <td style="color: var(--text-muted);">{{ loop.index }}</td>
+                        <td><strong style="color: var(--text-primary);">{{ row.track_name }}</strong></td>
+                        <td style="color: var(--spotify-green);">{{ row.artist_name }}</td>
+                        <td style="color: var(--text-secondary);">{{ row.album_name }}</td>
+                        <td>
+                            <div class="pop-container">
+                                <div class="pop-bar"><div class="pop-fill" style="width: {{ row.popularity }}%;"></div></div>
+                                <span class="pop-num">{{ row.popularity }}</span>
+                            </div>
+                        </td>
+                        <td style="color: var(--text-muted);">{{ format_duration(row.duration_ms) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+            {% elif selected_id == '2' %}
+                <!-- Q2: Avg Popularity stats -->
+                <thead>
+                    <tr>
+                        <th>Total Tracks Analyzed</th>
+                        <th>Average Popularity (AVG)</th>
+                        <th>Minimum Popularity (MIN)</th>
+                        <th>Maximum Popularity (MAX)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-size: 18px; font-weight: 700; color: var(--text-primary);">{{ analysis.data.total_tracks }}</td>
+                        <td style="font-size: 18px; font-weight: 700; color: var(--spotify-green);">{{ analysis.data.avg_popularity }} / 100</td>
+                        <td style="font-size: 18px; font-weight: 700; color: var(--accent-amber);">{{ analysis.data.min_popularity }}</td>
+                        <td style="font-size: 18px; font-weight: 700; color: var(--accent-blue);">{{ analysis.data.max_popularity }}</td>
+                    </tr>
+                </tbody>
+
+            {% elif selected_id == '3' %}
+                <!-- Q3: Artist-wise avg popularity -->
+                <thead>
+                    <tr>
+                        <th>Artist Name</th>
+                        <th>Country</th>
+                        <th>Total Tracks</th>
+                        <th>Average Popularity</th>
+                        <th>Peak Track Popularity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in analysis.data %}
+                    <tr>
+                        <td><strong style="color: var(--text-primary);">{{ row.artist_name }}</strong></td>
+                        <td><span class="badge badge-blue">{{ row.country }}</span></td>
+                        <td>{{ row.track_count }} songs</td>
+                        <td><strong style="color: var(--spotify-green);">{{ row.avg_popularity }}</strong></td>
+                        <td>{{ row.peak_popularity }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+            {% elif selected_id == '4' %}
+                <!-- Q4: Album-wise analysis -->
+                <thead>
+                    <tr>
+                        <th>Album Name</th>
+                        <th>Artist</th>
+                        <th>Release Date</th>
+                        <th>Tracks Yield</th>
+                        <th>Average Popularity</th>
+                        <th>Avg Track Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in analysis.data %}
+                    <tr>
+                        <td><strong style="color: var(--text-primary);">{{ row.album_name }}</strong></td>
+                        <td style="color: var(--spotify-green);">{{ row.artist_name }}</td>
+                        <td style="color: var(--text-secondary);">{{ row.release_date }}</td>
+                        <td><span class="badge badge-green">{{ row.track_count }} Tracks</span></td>
+                        <td><strong>{{ row.avg_popularity }}</strong></td>
+                        <td>{{ row.avg_duration_seconds }}s</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+            {% elif selected_id == '5' %}
+                <!-- Q5: Popularity >= 70 -->
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Track Name</th>
+                        <th>Artist</th>
+                        <th>Album</th>
+                        <th>Popularity</th>
+                        <th>Duration (Min)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in analysis.data %}
+                    <tr>
+                        <td style="color: var(--text-muted);">{{ loop.index }}</td>
+                        <td><strong style="color: var(--text-primary);">{{ row.track_name }}</strong></td>
+                        <td style="color: var(--spotify-green);">{{ row.artist_name }}</td>
+                        <td style="color: var(--text-secondary);">{{ row.album_name }}</td>
+                        <td><span class="badge badge-green">{{ row.popularity }} / 100</span></td>
+                        <td>{{ row.duration_minutes }} min</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+            {% elif selected_id == '6' %}
+                <!-- Q6: Most popular artist -->
+                <thead>
+                    <tr>
+                        <th>Top Artist Name</th>
+                        <th>Origin Country</th>
+                        <th>Catalog Size</th>
+                        <th>Cumulative Average Popularity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong style="font-size: 18px; color: var(--spotify-green);">{{ analysis.data.artist_name }}</strong></td>
+                        <td><span class="badge badge-blue">{{ analysis.data.country }}</span></td>
+                        <td>{{ analysis.data.total_tracks }} Songs</td>
+                        <td><span style="font-size: 18px; font-weight: 800; color: #fff;">{{ analysis.data.avg_popularity }}</span></td>
+                    </tr>
+                </tbody>
+
+            {% elif selected_id == '7' %}
+                <!-- Q7: Audio features comparison -->
+                <thead>
+                    <tr>
+                        <th>Artist</th>
+                        <th>Avg Danceability</th>
+                        <th>Avg Energy</th>
+                        <th>Avg Valence</th>
+                        <th>Avg Acousticness</th>
+                        <th>Avg Tempo (BPM)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in analysis.data %}
+                    <tr>
+                        <td><strong style="color: var(--text-primary);">{{ row.artist_name }}</strong></td>
+                        <td><span style="color: #1ed760; font-weight: 600;">{{ row.avg_danceability }}</span></td>
+                        <td><span style="color: #3d91f4; font-weight: 600;">{{ row.avg_energy }}</span></td>
+                        <td><span style="color: #f2994a; font-weight: 600;">{{ row.avg_valence }}</span></td>
+                        <td><span style="color: #9b51e0; font-weight: 600;">{{ row.avg_acousticness }}</span></td>
+                        <td>{{ row.avg_tempo }} BPM</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+
+            {% elif selected_id == '8' %}
+                <!-- Q8: Danceability & Energy (Party Index) -->
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Track Name</th>
+                        <th>Artist</th>
+                        <th>Danceability</th>
+                        <th>Energy</th>
+                        <th>Party Index [(D+E)/2]</th>
+                        <th>Tempo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in analysis.data %}
+                    <tr>
+                        <td style="color: var(--text-muted);">#{{ loop.index }}</td>
+                        <td><strong style="color: var(--text-primary);">{{ row.track_name }}</strong></td>
+                        <td style="color: var(--spotify-green);">{{ row.artist_name }}</td>
+                        <td>{{ row.danceability }}</td>
+                        <td>{{ row.energy }}</td>
+                        <td><strong style="color: #f2994a; font-size: 14px;">{{ row.party_index }}</strong></td>
+                        <td>{{ row.tempo }} BPM</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            {% endif %}
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const queryId = "{{ selected_id }}";
+        {% if selected_id == '1' %}
+            const labels = {{ analysis.data | map(attribute='track_name') | list | tojson }};
+            const values = {{ analysis.data | map(attribute='popularity') | list | tojson }};
+            initAnalysisBarChart(labels, values, "Track Popularity");
+        {% elif selected_id == '3' %}
+            const labels = {{ analysis.data | map(attribute='artist_name') | list | tojson }};
+            const values = {{ analysis.data | map(attribute='avg_popularity') | list | tojson }};
+            initAnalysisBarChart(labels, values, "Average Popularity");
+        {% elif selected_id == '8' %}
+            const labels = {{ analysis.data[:10] | map(attribute='track_name') | list | tojson }};
+            const values = {{ analysis.data[:10] | map(attribute='party_index') | list | tojson }};
+            initAnalysisBarChart(labels, values, "Party Index");
+        {% endif %}
+    });
+</script>
+{% endblock %}

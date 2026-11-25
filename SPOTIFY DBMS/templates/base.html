@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Spotify Audio Features & Popularity Explorer{% endblock %} | DBMS Capstone</title>
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20width=%22100%22%20height=%22100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%231ed760%22/><path d=%22M25 40 Q50 30 75 40 M28 52 Q50 42 72 52 M32 64 Q50 56 68 64%22 stroke=%22%23000%22 stroke-width=%226%22 stroke-linecap=%22round%22 fill=%22none%22/></svg>">
+    <!-- Main Style -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+    <!-- =====================================================================
+         A. LEFT SIDEBAR NAVIGATION
+         ===================================================================== -->
+    <aside class="sidebar" id="sidebar">
+        <a href="{{ url_for('home') }}" class="sidebar-brand">
+            <div class="brand-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="12" r="10" fill="#1ed760"/>
+                    <path d="M7 10.5c3.5-1 6.5-.8 10 .8M7.8 13.5c2.8-.8 5.2-.6 8 .6M8.5 16.5c2.2-.6 4-.4 6.2.4" stroke="#000" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <h2>Spotify Explorer</h2>
+                <span>DBMS Capstone</span>
+            </div>
+        </a>
+
+        <ul class="sidebar-menu">
+            <li class="sidebar-section-title">Navigation</li>
+            <li class="sidebar-item {% if active_page == 'dashboard' %}active{% endif %}">
+                <a href="{{ url_for('home') }}">
+                    <span class="menu-icon">▦</span>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            
+            <li class="sidebar-section-title">Database Entities</li>
+            <li class="sidebar-item {% if active_page == 'artists' %}active{% endif %}">
+                <a href="{{ url_for('artists_list') }}">
+                    <span class="menu-icon">👤</span>
+                    <span>Artists</span>
+                </a>
+            </li>
+            <li class="sidebar-item {% if active_page == 'albums' %}active{% endif %}">
+                <a href="{{ url_for('albums_list') }}">
+                    <span class="menu-icon">💿</span>
+                    <span>Albums</span>
+                </a>
+            </li>
+            <li class="sidebar-item {% if active_page == 'tracks' %}active{% endif %}">
+                <a href="{{ url_for('tracks_list') }}">
+                    <span class="menu-icon">🎵</span>
+                    <span>Tracks</span>
+                </a>
+            </li>
+            <li class="sidebar-item {% if active_page == 'audio_features' %}active{% endif %}">
+                <a href="{{ url_for('audio_features_list') }}">
+                    <span class="menu-icon">🎛️</span>
+                    <span>Audio Features</span>
+                </a>
+            </li>
+
+            <li class="sidebar-section-title">DBMS Analytics</li>
+            <li class="sidebar-item {% if active_page == 'analysis' %}active{% endif %}">
+                <a href="{{ url_for('sql_analysis') }}">
+                    <span class="menu-icon">📊</span>
+                    <span>SQL Analysis</span>
+                </a>
+            </li>
+            <li class="sidebar-item {% if active_page == 'reports' %}active{% endif %}">
+                <a href="{{ url_for('reports') }}">
+                    <span class="menu-icon">📁</span>
+                    <span>Reports</span>
+                </a>
+            </li>
+            <li class="sidebar-item {% if active_page == 'settings' %}active{% endif %}">
+                <a href="{{ url_for('settings') }}">
+                    <span class="menu-icon">⚙</span>
+                    <span>Settings</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="db-pill" title="{{ db_status.message }}">
+                <div class="status-dot {% if db_status.engine == 'mysql' and db_status.connected %}online{% else %}offline{% endif %}"></div>
+                <div>
+                    <strong style="color: var(--text-primary); text-transform: uppercase;">{{ db_status.engine }}</strong>
+                    <div style="font-size: 10px; color: var(--text-muted);">
+                        {% if db_status.engine == 'mysql' and db_status.connected %}
+                            Live MySQL 3306
+                        {% else %}
+                            Local Mirror Active
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- =====================================================================
+         MAIN WRAPPER & TOP HEADER
+         ===================================================================== -->
+    <div class="main-wrapper">
+        <header class="top-header">
+            <div class="header-left">
+                <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" aria-label="Toggle navigation">
+                    ☰
+                </button>
+                <div class="page-title">
+                    <h1>{% block header_title %}Spotify Audio Features & Popularity Explorer{% endblock %}</h1>
+                    <p>{% block header_subtitle %}Relational DBMS Analytics & Audio Feature Insights{% endblock %}</p>
+                </div>
+            </div>
+
+            <!-- Global Search with live suggestions -->
+            <div class="header-search-wrap">
+                <form class="header-search" action="{{ url_for('tracks_list') }}" method="GET" id="globalSearchForm">
+                    <span class="search-icon">🔍</span>
+                    <input type="search" name="q" id="globalSearchInput" autocomplete="off" placeholder="Search tracks, artists, albums..." value="{{ search_query if search_query is defined else '' }}">
+                </form>
+                <div class="search-suggestions" id="searchSuggestions"></div>
+            </div>
+
+            <div class="header-right">
+                <div class="header-badge" title="Database schema status">
+                    <span class="badge-dot"></span>
+                    <span>Schema:</span>
+                    <strong>spotify_explorer</strong>
+                </div>
+
+                <!-- Interactive Notification Dropdown -->
+                <div class="dropdown-wrap">
+                    <button type="button" class="btn-icon" id="notifBtn" title="System Notifications & Activity">
+                        🔔
+                        <span class="notif-badge">3</span>
+                    </button>
+                    <div class="dropdown-menu notif-dropdown" id="notifDropdown">
+                        <div class="dropdown-header">
+                            <h4>System Activity & Telemetry</h4>
+                            <span class="badge badge-green">Live</span>
+                        </div>
+                        <div class="notif-item">
+                            <span class="notif-status-dot online"></span>
+                            <div>
+                                <strong>Engine: {{ db_status.engine|upper }}</strong>
+                                <p>{{ db_status.message }}</p>
+                            </div>
+                        </div>
+                        <div class="notif-item">
+                            <span class="notif-status-dot info"></span>
+                            <div>
+                                <strong>Normalized 3NF Schema</strong>
+                                <p>4 Relational tables mapped with CASCADE integrity.</p>
+                            </div>
+                        </div>
+                        <div class="notif-item">
+                            <span class="notif-status-dot success"></span>
+                            <div>
+                                <strong>Audio DSP Matrix</strong>
+                                <p>Danceability, Energy, Valence DSP metrics synchronized.</p>
+                            </div>
+                        </div>
+                        <div class="dropdown-footer">
+                            <a href="{{ url_for('reports') }}">View Comprehensive Reports →</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive User Profile Dropdown -->
+                <div class="dropdown-wrap">
+                    <div class="user-avatar" id="userProfileBtn" title="Student Administrator">
+                        SA
+                    </div>
+                    <div class="dropdown-menu profile-dropdown" id="profileDropdown">
+                        <div class="profile-card-header">
+                            <div class="user-avatar-lg">SA</div>
+                            <div>
+                                <h4>Student Administrator</h4>
+                                <span class="role-badge">DBMS Capstone Lead</span>
+                            </div>
+                        </div>
+                        <div class="profile-info-list">
+                            <div class="profile-info-item">
+                                <span>Project:</span>
+                                <strong>Spotify Audio Explorer</strong>
+                            </div>
+                            <div class="profile-info-item">
+                                <span>Database:</span>
+                                <code>spotify_explorer</code>
+                            </div>
+                            <div class="profile-info-item">
+                                <span>Engine:</span>
+                                <strong>{{ db_status.engine|upper }}</strong>
+                            </div>
+                        </div>
+                        <div class="dropdown-footer">
+                            <a href="{{ url_for('settings') }}">⚙️ Database Settings</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- FLASH NOTIFICATION TOASTS -->
+        <main class="content-body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-container">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                <span>{{ message }}</span>
+                                <button type="button" class="alert-close">&times;</button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

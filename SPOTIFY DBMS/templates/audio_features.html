@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Audio Features | Spotify Audio Explorer{% endblock %}
+{% block header_title %}Audio Features Matrix{% endblock %}
+{% block header_subtitle %}1-to-1 Specialized Entity capturing DSP Audio Signal Metrics{% endblock %}
+
+{% block content %}
+<section class="table-panel">
+    <div class="table-toolbar">
+        <div>
+            <h2 style="font-size: 18px; font-weight: 700;">Audio Feature Measurements ({{ features|length }})</h2>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Table: <code>audio_features</code> (Primary & Foreign Key: <code>track_id</code>)</p>
+        </div>
+        <div class="toolbar-actions">
+            <input type="text" id="clientTableSearch" class="form-control" style="width: 220px; height: 36px;" placeholder="Search track or artist...">
+            <button type="button" class="btn btn-primary btn-sm" onclick="openModal('featuresModal')">
+                + Configure Track Features
+            </button>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="custom-table" data-paginate="true" data-per-page="10">
+            <thead>
+                <tr>
+                    <th>Track</th>
+                    <th>Artist</th>
+                    <th>Danceability</th>
+                    <th>Energy</th>
+                    <th>Valence</th>
+                    <th>Tempo (BPM)</th>
+                    <th>Acousticness</th>
+                    <th>Loudness (dB)</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for feat in features %}
+                <tr>
+                    <td>
+                        <strong style="color: var(--text-primary); font-size: 14px;">{{ feat.track_name }}</strong>
+                    </td>
+                    <td>
+                        <span style="color: var(--spotify-green); font-weight: 600;">{{ feat.artist_name }}</span>
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="pop-bar" style="width: 60px;">
+                                <div class="pop-fill" style="width: {{ (feat.danceability * 100)|round }}%; background: #1ed760;"></div>
+                            </div>
+                            <span style="font-size: 12px; font-weight: 600;">{{ feat.danceability }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="pop-bar" style="width: 60px;">
+                                <div class="pop-fill" style="width: {{ (feat.energy * 100)|round }}%; background: #3d91f4;"></div>
+                            </div>
+                            <span style="font-size: 12px; font-weight: 600;">{{ feat.energy }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="pop-bar" style="width: 60px;">
+                                <div class="pop-fill" style="width: {{ (feat.valence * 100)|round }}%; background: #f2994a;"></div>
+                            </div>
+                            <span style="font-size: 12px; font-weight: 600;">{{ feat.valence }}</span>
+                        </div>
+                    </td>
+                    <td style="font-size: 13px; font-weight: 600; color: #cbd5e1;">
+                        {{ feat.tempo }} BPM
+                    </td>
+                    <td>
+                        <span style="font-size: 12px; color: #a78bfa;">{{ feat.acousticness }}</span>
+                    </td>
+                    <td style="font-size: 12px; color: var(--text-muted);">
+                        {{ feat.loudness }} dB
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="editAudioFeatures({{ feat.track_id }}, '{{ feat.track_name | escape }}', {{ feat.danceability }}, {{ feat.energy }}, {{ feat.valence }}, {{ feat.tempo }}, {{ feat.acousticness }}, {{ feat.loudness }})">
+                            Edit
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        No audio features recorded yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="table-pagination">
+        <div class="pagination-info">Showing <span class="page-start">1</span> to <span class="page-end">10</span> of <span class="page-total">{{ features|length }}</span> tracks</div>
+        <div class="pagination-controls">
+            <button type="button" class="page-btn prev-btn" disabled>&laquo; Prev</button>
+            <div class="page-numbers"></div>
+            <button type="button" class="page-btn next-btn">Next &raquo;</button>
+        </div>
+    </div>
+</section>
+
+<!-- =========================================================================
+     MODAL: CONFIGURE AUDIO FEATURES
+     ========================================================================= -->
+<div id="featuresModal" class="modal-overlay">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Configure Audio Features</h3>
+            <button type="button" class="modal-close" onclick="closeModal('featuresModal')">&times;</button>
+        </div>
+        <form id="featuresForm" action="{{ url_for('audio_features_save') }}" method="POST">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Target Track (Foreign Key: <code>tracks.track_id</code>) *</label>
+                    <select id="feat_track_id" name="track_id" class="form-control" required>
+                        <option value="">-- Select Track --</option>
+                        {% for track in tracks %}
+                            <option value="{{ track.track_id }}">{{ track.track_name }} - {{ track.artist_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Danceability (0.00 - 1.00) *</label>
+                        <div class="range-wrap">
+                            <input type="range" id="feat_danceability" name="danceability" min="0.0" max="1.0" step="0.01" value="0.75" required>
+                            <span class="range-val">0.75</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Energy (0.00 - 1.00) *</label>
+                        <div class="range-wrap">
+                            <input type="range" id="feat_energy" name="energy" min="0.0" max="1.0" step="0.01" value="0.70" required>
+                            <span class="range-val">0.70</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Valence / Mood (0.00 - 1.00) *</label>
+                        <div class="range-wrap">
+                            <input type="range" id="feat_valence" name="valence" min="0.0" max="1.0" step="0.01" value="0.55" required>
+                            <span class="range-val">0.55</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Acousticness (0.00 - 1.00) *</label>
+                        <div class="range-wrap">
+                            <input type="range" id="feat_acousticness" name="acousticness" min="0.0" max="1.0" step="0.01" value="0.15" required>
+                            <span class="range-val">0.15</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tempo (BPM) *</label>
+                        <input type="number" id="feat_tempo" name="tempo" class="form-control" step="0.1" value="120.0" min="40" max="250" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Loudness (dB) *</label>
+                        <input type="number" id="feat_loudness" name="loudness" class="form-control" step="0.1" value="-6.0" min="-60" max="0" required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('featuresModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save to Database</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Albums Management | Spotify Audio Explorer{% endblock %}
+{% block header_title %}Albums Catalogue{% endblock %}
+{% block header_subtitle %}Relational Albums Entity referencing Artists via Foreign Key{% endblock %}
+
+{% block content %}
+<section class="table-panel">
+    <div class="table-toolbar">
+        <div>
+            <h2 style="font-size: 18px; font-weight: 700;">Albums Directory ({{ albums|length }})</h2>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Relational entity: <code>albums</code> table with Foreign Key <code>artist_id</code></p>
+        </div>
+        <div class="toolbar-actions">
+            <input type="text" id="clientTableSearch" class="form-control" style="width: 220px; height: 36px;" placeholder="Search albums or artists...">
+            <button type="button" class="btn btn-primary btn-sm" onclick="openModal('addAlbumModal')">
+                + Add New Album
+            </button>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="custom-table" data-paginate="true" data-per-page="10">
+            <thead>
+                <tr>
+                    <th>Album ID</th>
+                    <th>Album Name</th>
+                    <th>Artist (Foreign Key)</th>
+                    <th>Release Date</th>
+                    <th>Tracks Count</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for album in albums %}
+                <tr>
+                    <td style="color: var(--text-muted); font-size: 13px;">#{{ album.album_id }}</td>
+                    <td>
+                        <strong style="color: var(--text-primary); font-size: 14px;">{{ album.album_name }}</strong>
+                    </td>
+                    <td>
+                        <span style="color: var(--spotify-green); font-weight: 600;">{{ album.artist_name }}</span>
+                    </td>
+                    <td style="color: var(--text-secondary); font-size: 13px;">{{ album.release_date }}</td>
+                    <td>
+                        <span class="badge badge-green">{{ album.track_count }} Tracks</span>
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="editAlbum({{ album.album_id }}, '{{ album.album_name | escape }}', '{{ album.release_date }}', {{ album.artist_id }})">
+                                Edit
+                            </button>
+                            <form action="{{ url_for('album_delete', album_id=album.album_id) }}" method="POST" onsubmit="return confirm('Delete album {{ album.album_name }} and all its songs?');">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        No albums found. Click "+ Add New Album" above.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="table-pagination">
+        <div class="pagination-info">Showing <span class="page-start">1</span> to <span class="page-end">10</span> of <span class="page-total">{{ albums|length }}</span> albums</div>
+        <div class="pagination-controls">
+            <button type="button" class="page-btn prev-btn" disabled>&laquo; Prev</button>
+            <div class="page-numbers"></div>
+            <button type="button" class="page-btn next-btn">Next &raquo;</button>
+        </div>
+    </div>
+</section>
+
+<!-- =========================================================================
+     MODAL: ADD NEW ALBUM
+     ========================================================================= -->
+<div id="addAlbumModal" class="modal-overlay">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Add New Album</h3>
+            <button type="button" class="modal-close" onclick="closeModal('addAlbumModal')">&times;</button>
+        </div>
+        <form action="{{ url_for('album_add') }}" method="POST">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Album Title *</label>
+                    <input type="text" name="album_name" class="form-control" placeholder="e.g. 24K Magic" required>
+                </div>
+                <div class="form-group">
+                    <label>Artist (Foreign Key: <code>artists.artist_id</code>) *</label>
+                    <select name="artist_id" class="form-control" required>
+                        <option value="">-- Select Artist --</option>
+                        {% for artist in artists %}
+                            <option value="{{ artist.artist_id }}">{{ artist.artist_name }} ({{ artist.country }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Release Date *</label>
+                    <input type="date" name="release_date" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addAlbumModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Album to Database</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- =========================================================================
+     MODAL: EDIT ALBUM
+     ========================================================================= -->
+<div id="editAlbumModal" class="modal-overlay">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Edit Album Information</h3>
+            <button type="button" class="modal-close" onclick="closeModal('editAlbumModal')">&times;</button>
+        </div>
+        <form id="editAlbumForm" method="POST">
+            <input type="hidden" id="edit_album_id" name="album_id">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Album Title *</label>
+                    <input type="text" id="edit_album_name" name="album_name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Artist *</label>
+                    <select id="edit_artist_id" name="artist_id" class="form-control" required>
+                        {% for artist in artists %}
+                            <option value="{{ artist.artist_id }}">{{ artist.artist_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Release Date *</label>
+                    <input type="date" id="edit_release_date" name="release_date" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editAlbumModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Database Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

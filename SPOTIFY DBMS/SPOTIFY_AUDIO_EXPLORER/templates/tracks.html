@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Tracks Management | Spotify Audio Explorer{% endblock %}
+{% block header_title %}Tracks & Catalog Explorer{% endblock %}
+{% block header_subtitle %}Central Relational Entity with Popularity Scoring and Audio DSP Links{% endblock %}
+
+{% block content %}
+<section class="table-panel">
+    <div class="table-toolbar">
+        <div>
+            <h2 style="font-size: 18px; font-weight: 700;">All Tracks ({{ tracks|length }})</h2>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Entity: <code>tracks</code> table with Foreign Key <code>album_id</code></p>
+        </div>
+        <div class="toolbar-actions">
+            <!-- Sort dropdown -->
+            <form action="{{ url_for('tracks_list') }}" method="GET" style="display: flex; gap: 8px;">
+                {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
+                <select name="sort" class="form-control" style="width: 180px; height: 36px; padding: 0 10px;" onchange="this.form.submit()">
+                    <option value="popularity_desc" {% if current_sort == 'popularity_desc' %}selected{% endif %}>Popularity (High → Low)</option>
+                    <option value="popularity_asc" {% if current_sort == 'popularity_asc' %}selected{% endif %}>Popularity (Low → High)</option>
+                    <option value="track_name" {% if current_sort == 'track_name' %}selected{% endif %}>Track Title (A-Z)</option>
+                    <option value="artist_name" {% if current_sort == 'artist_name' %}selected{% endif %}>Artist Name (A-Z)</option>
+                    <option value="duration" {% if current_sort == 'duration' %}selected{% endif %}>Duration (Longest)</option>
+                    <option value="recent" {% if current_sort == 'recent' %}selected{% endif %}>Recently Added</option>
+                </select>
+            </form>
+
+            <input type="text" id="clientTableSearch" class="form-control" style="width: 200px; height: 36px;" placeholder="Filter displayed rows...">
+            
+            <button type="button" class="btn btn-primary btn-sm" onclick="openModal('addTrackModal')">
+                + Add New Track
+            </button>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="custom-table" data-paginate="true" data-per-page="10">
+            <thead>
+                <tr>
+                    <th>Track ID</th>
+                    <th>Track Name</th>
+                    <th>Artist</th>
+                    <th>Album</th>
+                    <th>Popularity</th>
+                    <th>Duration</th>
+                    <th>Audio Features</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for track in tracks %}
+                <tr>
+                    <td style="color: var(--text-muted); font-size: 13px;">#{{ track.track_id }}</td>
+                    <td>
+                        <strong style="color: var(--text-primary); font-size: 14px;">{{ track.track_name }}</strong>
+                    </td>
+                    <td>
+                        <span style="color: var(--spotify-green); font-weight: 600;">{{ track.artist_name }}</span>
+                    </td>
+                    <td style="color: var(--text-secondary); font-size: 13px;">{{ track.album_name }}</td>
+                    <td>
+                        <div class="pop-container">
+                            <div class="pop-bar">
+                                <div class="pop-fill" style="width: {{ track.popularity }}%;"></div>
+                            </div>
+                            <span class="pop-num">{{ track.popularity }}</span>
+                        </div>
+                    </td>
+                    <td style="color: var(--text-muted); font-size: 13px;">
+                        {{ format_duration(track.duration_ms) }}
+                    </td>
+                    <td>
+                        {% if track.has_features %}
+                            <a href="{{ url_for('audio_features_list', q=track.track_name) }}" class="badge badge-green" style="text-decoration: none;">
+                                ✓ Configured
+                            </a>
+                        {% else %}
+                            <span class="badge badge-amber">Missing</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="editTrack({{ track.track_id }}, '{{ track.track_name | escape }}', {{ track.album_id }}, {{ track.popularity }}, {{ (track.duration_ms / 1000)|int }})">
+                                Edit
+                            </button>
+                            <form action="{{ url_for('track_delete', track_id=track.track_id) }}" method="POST" onsubmit="return confirm('Delete track \'{{ track.track_name }}\' from database?');">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        No tracks found matching criteria. Click "+ Add New Track" to insert one.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="table-pagination">
+        <div class="pagination-info">Showing <span class="page-start">1</span> to <span class="page-end">10</span> of <span class="page-total">{{ tracks|length }}</span> tracks</div>
+        <div class="pagination-controls">
+            <button type="button" class="page-btn prev-btn" disabled>&laquo; Prev</button>
+            <div class="page-numbers"></div>
+            <button type="button" class="page-btn next-btn">Next &raquo;</button>
+        </div>
+    </div>
+</section>
+
+<!-- =========================================================================
+     MODAL: ADD NEW TRACK
+     ========================================================================= -->
+<div id="addTrackModal" class="modal-overlay">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Add New Track to Catalogue</h3>
+            <button type="button" class="modal-close" onclick="closeModal('addTrackModal')">&times;</button>
+        </div>
+        <form action="{{ url_for('track_add') }}" method="POST">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Track Title *</label>
+                    <input type="text" name="track_name" class="form-control" placeholder="e.g. Uptown Funk" required>
+                </div>
+                <div class="form-group">
+                    <label>Album (Foreign Key: <code>albums.album_id</code>) *</label>
+                    <select name="album_id" class="form-control" required>
+                        <option value="">-- Select Album --</option>
+                        {% for album in albums %}
+                            <option value="{{ album.album_id }}">{{ album.album_name }} ({{ album.artist_name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Popularity (0-100) *</label>
+                        <div class="range-wrap">
+                            <input type="range" name="popularity" min="0" max="100" value="85" required>
+                            <span class="range-val">85</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Duration (Seconds) *</label>
+                        <input type="number" name="duration_sec" class="form-control" value="210" min="10" max="1800" required>
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid var(--border-color); padding-top: 14px; margin-top: 10px;">
+                    <p style="font-size: 12px; color: var(--spotify-green); font-weight: 600; margin-bottom: 12px;">
+                        Optional: Initialize Audio DSP Features
+                    </p>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Danceability (0.0 - 1.0)</label>
+                            <div class="range-wrap">
+                                <input type="range" name="danceability" min="0.0" max="1.0" step="0.01" value="0.75">
+                                <span class="range-val">0.75</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Energy (0.0 - 1.0)</label>
+                            <div class="range-wrap">
+                                <input type="range" name="energy" min="0.0" max="1.0" step="0.01" value="0.70">
+                                <span class="range-val">0.70</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addTrackModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Track to Database</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- =========================================================================
+     MODAL: EDIT TRACK
+     ========================================================================= -->
+<div id="editTrackModal" class="modal-overlay">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Edit Track Details</h3>
+            <button type="button" class="modal-close" onclick="closeModal('editTrackModal')">&times;</button>
+        </div>
+        <form id="editTrackForm" method="POST">
+            <input type="hidden" id="edit_track_id" name="track_id">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Track Title *</label>
+                    <input type="text" id="edit_track_name" name="track_name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Album *</label>
+                    <select id="edit_album_id" name="album_id" class="form-control" required>
+                        {% for album in albums %}
+                            <option value="{{ album.album_id }}">{{ album.album_name }} ({{ album.artist_name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Popularity (0-100) *</label>
+                        <div class="range-wrap">
+                            <input type="range" id="edit_popularity" name="popularity" min="0" max="100" required>
+                            <span class="range-val">50</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Duration (Seconds) *</label>
+                        <input type="number" id="edit_duration_sec" name="duration_sec" class="form-control" min="10" max="1800" required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editTrackModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Database Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
